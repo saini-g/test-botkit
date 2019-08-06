@@ -15,6 +15,8 @@ module.exports = controller => {
     controller.on(
         'direct_message',
         async (bot, message) => {
+            console.log('nlp response----');
+            console.log(message.intent, message.entities, message.fulfillment);
 
             if (message.text === 'start dialog') {
                 await bot.beginDialog('my_dialog_1');
