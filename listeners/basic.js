@@ -21,11 +21,10 @@ module.exports = controller => {
                 console.log(message.intent, message.entities, message.fulfillment);
 
                 if (message.intent === 'connect_to_sf') {
-                    let existingConn = await connFactory.getConnection(message.team_id, controller);
+                    let existingConn = await connFactory.getConnection(message.team, controller);
 
                     if (!existingConn) {
-                        const authUrl = connFactory.getAuthUrl(message.team_id);
-                        console.log(message);
+                        const authUrl = connFactory.getAuthUrl(message.team);
                         await bot.reply(message, `click this link to connect\n<${authUrl}|Connect to Salesforce>`);
                     } else {
                         await bot.beginDialog('sf_auth');
