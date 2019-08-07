@@ -1,8 +1,8 @@
-const { BotkitConversation } = require('botkit');
+const connFactory = require('../util/connection-factory');
 
 module.exports = controller => {
 
-    let convo = new BotkitConversation('my_dialog_1', controller);
+    /* let convo = new BotkitConversation('my_dialog_1', controller);
     convo.ask('What is your name?', [], 'name');
     convo.ask('What is your age?', [], 'age');
     convo.ask('What is your favorite color?', [], 'color');
@@ -10,18 +10,30 @@ module.exports = controller => {
         console.log(results);
         // await bot.say('conversation complete!');
     });
-    controller.addDialog(convo);
+    controller.addDialog(convo); */
 
     controller.on(
         'direct_message',
         async (bot, message) => {
-            console.log('nlp response----');
-            console.log(message.intent, message.entities, message.fulfillment);
 
-            if (message.text === 'start dialog') {
-                await bot.beginDialog('my_dialog_1');
-            } else {
-                await bot.reply(message, 'hello');
+            try {
+                console.log('nlp response----');
+                console.log(message.intent, message.entities, message.fulfillment);
+    
+                if (message.intent === 'connect_to_sf') {
+                    let existingConn = await connFactory.getConnection(message.team_id, controller);
+
+                    if (!existingConn) {
+                        const authUrl = connFactory.getAuthUrl(message.team_id);
+                        await bot.reply(message, `click this link to connect\n<${authUrl}|Connect to Salesforce>`);
+                    } else {
+                        await bot.beginDialog('sf_auth');
+                    }
+                } else {
+                    await bot.reply(message, 'hello');
+                }
+            } catch (err) {
+                logger.log(err);
             }
         }
     );
@@ -93,6 +105,53 @@ module.exports = controller => {
         } catch (err) {
             console.log(err);
         }
+    });
+
+    controller.on('post-message', reqBody => {
+
+        reqBody.messages.forEach(async msg => {
+
+            try {
+                let teamIdsArray = reqBody.teamId.split(',');
+                const teams = await controller.plugins.database.teams.find({ id: { $in: teamIdsArray } });
+
+                if (!teams) {
+                    return logger.log('team not found for id:', reqBody.teamId);
+                }
+
+                for (let index = 0, len = teams.length; index < len; index++) {
+                    const isTeamMigrating = await checkTeamMigration(teams[index].id, controller);
+
+                    if (!isTeamMigrating) {
+                        const bot = controller.spawn(teams[index].id);
+
+                        if (msg.userEmail) {
+                            const userData = await bot.api.users.lookupByEmail({
+                                token: teams[index].bot.token,
+                                email: msg.userEmail
+                            });
+
+                            if (!userData || !userData.user) {
+                                return logger.log('user not found in team ' + teams[index].id + ' for email:', msg.userEmail);
+                            }
+                            await bot.startPrivateConversation(userData.user.id);
+                            await bot.say(msg.text);
+                        } else {
+                            const channels = await controller.plugins.database.channels.find({ team_id: teams[index].id });
+
+                            if (channels && channels.length > 0) {
+                                await bot.startConversationInChannel(channels[0].id);
+                                await bot.say(msg.text);
+                            }
+                        }
+                    } else {
+                        logger.log(`cannot post message for team id ${teams[index].id}, this team is in migration `);
+                    }
+                }
+            } catch (err) {
+                logger.log(err);
+            }
+        });
     });
 
 }

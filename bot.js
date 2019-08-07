@@ -8,6 +8,8 @@ const mongoProvider = require('./db/mongo-provider')({
     mongoUri: process.env.MONGO_CONNECTION_STRING
 });
 const authRouter = require('./routes/oauth');
+const sfAuthRouter = require('./routes/sf-oauth');
+const sfMsgRouter = require('./routes/msg-handler');
 
 const adapter = new SlackAdapter({
     clientSigningSecret: process.env.SLACK_SIGNING_SECRET,
@@ -31,9 +33,12 @@ controller.addPluginExtension('database', mongoProvider);
 controller.middleware.receive.use(dialogflowMiddleware.receive);
 
 controller.ready(() => {
+    controller.loadModules(__dirname + '/dialogs');
     controller.loadModules(__dirname + '/listeners');
 
     authRouter(controller);
+    sfAuthRouter(controller);
+    sfMsgRouter(controller);
 });
 
 async function getTokenForTeam(teamId) {
