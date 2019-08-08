@@ -126,6 +126,7 @@ module.exports = controller => {
 
                     if (!isTeamMigrating) {
                         const bot = controller.spawn(teams[index].id);
+                        console.log(teams[index].id, bot);
 
                         if (msg.userEmail) {
                             const userData = await bot.api.users.lookupByEmail({
