@@ -14,6 +14,11 @@ module.exports = controller => {
         action: 'default'
     }, 'bad_response');
 
+    convo.addMessage({
+        text: `click this link to connect\n<${convo.vars.authUrl}|Connect to Salesforce>`,
+        action: 'default'
+    }, 'connect');
+
     convo.addQuestion('You are already connected to a Salesforce instance. Are you sure you want to disconnect from it and connect to another instance?', [
         {
             pattern: '^(yes|yea|yup|yep|ya|sure|ok|y|yeah|yah)',
@@ -22,7 +27,8 @@ module.exports = controller => {
                 console.log(response);
                 console.log(bot.team_id);
                 const authUrl = connFactory.getAuthUrl(bot.team_id);
-                await bot.reply(message, `click this link to connect\n<${authUrl}|Connect to Salesforce>`);
+                convo.vars.authUrl = authUrl;
+                await convo.gotoThread('connect');
             }
         },
         {
